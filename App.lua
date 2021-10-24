@@ -19,10 +19,11 @@ local tabX, tabY =
     Misc.screenWidth,
     Misc.screenHeight
 )
-Utils.checkFailed(navX, '[error](错误，未找到导航条，程序退出！)')
+Utils.checkFailed(tabX, '[error](错误，未找到导航条，程序退出！)')
 
 App.tabWidth = Misc.screenWidth
 App.tabHeight = Misc.screenHeight - tabY
+App.statusHeight = 50
 
 App.navWidth = App.tabWidth
 App.navHeight = App.tabHeight
@@ -64,6 +65,23 @@ App.back = function(self, type)
 
     nLog('[](找到返回按钮)' .. x .. ' ' .. y)
     Utils.click(x, y)
+end
+
+App.isBack = function(self, type)
+    local color, colorArea
+    if type == 0 then
+        color = 0x000000
+        colorArea =
+            '-5|5|0x000000,-9|9|0x000000,-12|12|0x000000,-15|15|0x000000,-13|18|0x000000,-10|21|0x000000,-8|23|0x000000,-6|25|0x000000,0|31|0x000000'
+    elseif type == 1 then
+        color = 0xffffff
+        colorArea =
+            '-5|5|0xffffff,-9|9|0xffffff,-12|12|0xffffff,-15|15|0xffffff,-13|18|0xffffff,-10|21|0xffffff,-8|23|0xffffff,-6|25|0xffffff,0|31|0xffffff'
+    end
+
+    local x, y = findMultiColorInRegionFuzzy(color, colorArea, Misc.high, 0, 0, Misc.screenWidth, self.navHeight * 2)
+
+    return x ~= -1
 end
 
 App.restart = function()

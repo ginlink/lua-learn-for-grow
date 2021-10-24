@@ -9,9 +9,9 @@ LearnAction = {}
 LearnAction.Video = {waitTime = 0, readRetryTimes = 0}
 
 LearnAction.Video.init = function(self)
-    -- self.waitTime = 60 * 6
-    self.waitTime = 1
-    self.readRetryTimes = 0
+    self.waitTime = 60 * 6
+    -- self.waitTime = 1
+    self.readRetryTimes = 1
 end
 LearnAction.Video.start = function(self)
     self:init()
@@ -52,6 +52,14 @@ LearnAction.Video.start = function(self)
     self.readRetryTimes = 0
     Utils.click(Misc.screenWidth / 2, (videoY - App.navHeight) / 2)
 
+    mSleep(1000)
+    if App:isBack(1) == false then
+        mSleep(1000)
+        if App:isBack(1) == false then
+            goto video
+        end
+    end
+
     toast('[](当前休息中，观看视频6分钟)', self.waitTime)
     nLog('[](当前休息中，观看视频6分钟)')
     mSleep(self.waitTime * 1001)
@@ -60,59 +68,26 @@ end
 
 -- 阅读文章
 LearnAction.Artical = {
-    baseX = 0,
-    baseY = 0,
-    navX = nil,
-    navY = nil,
+    baseX = nil,
+    baseY = nil,
     readRetryTimes = 0,
     startTime = 0,
-    eachArticalSpeedTime = 0
+    eachArticalSpeedTime = 0,
+    reset = true
 }
 
 LearnAction.Artical.init = function(self)
-    -- 导航条
-    local navX, navY =
-        findMultiColorInRegionFuzzy(
-        0xd2d2d2,
-        '5|0|0xd2d2d2,16|0|0xd2d2d2,35|0|0xd2d2d2,76|0|0xd2d2d2,126|0|0xd2d2d2,172|0|0xd2d2d2',
-        Misc.high,
-        0,
-        Misc.screenHeight / 5 * 4,
-        Misc.screenWidth,
-        Misc.screenHeight
-    )
-    Utils.checkFailed(navX, '[error](错误，未找到导航条，程序退出！)')
-
-    nLog('[](导航条高度x, y)', navX, navY, Misc.screenHeight - navY)
-    self.navX = navX
-    self.navY = navY
-
-    -- 文章上线基点
-    local baseX, baseY =
-        findMultiColorInRegionFuzzy(
-        0xf2f3f5,
-        '36|0|0xf2f3f5,81|0|0xf2f3f5,135|0|0xf2f3f5,172|0|0xf2f3f5',
-        Misc.high,
-        0,
-        self.baseY,
-        Misc.screenWidth,
-        Misc.screenHeight
-    )
-    Utils.checkFailed(baseX, '[error](错误，未找到初始点，程序退出！)')
-
-    nLog('[](基线上线x, y)', baseX, baseY)
-    self.baseX = baseX
-    self.baseY = baseY + 1
-
     self.startTime = os.time()
     -- 每篇文章需要60秒钟
-    -- self.eachArticalSpeedTime = 60
-    -- self.totalArtical = 6
-    self.eachArticalSpeedTime = 1
+    self.eachArticalSpeedTime = 60
     self.totalArtical = 6
+
+    -- self.eachArticalSpeedTime = 1
+    -- self.totalArtical = 6
 end
 
 LearnAction.Artical.read = function(self, targetX, targetY)
+    mSleep(1000)
     Utils.click(targetX, targetY)
 
     ::read::
@@ -123,20 +98,24 @@ LearnAction.Artical.read = function(self, targetX, targetY)
     local i = 0
     local direction = 1 -- 滑动方向默认向下
 
-    -- x1, y1, x2, y2为文章可视区域
-    local x1, y1 = Misc.screenWidth / 2, self.navY - (Misc.screenHeight - self.navY) * 0.5
-    local x2, y2 = x1, (Misc.screenHeight - self.navY) * 2
+    -- 顶部导航上下线
+    local rangeLower = (App.navHeight * 2) + App.statusHeight
+    local rangeUpper = Misc.screenHeight - App.navHeight
 
-    -- TODO 判断是否在文章页面
+    -- x1, y1, x2, y2为文章可视区域
+    local x1, y1 = Misc.screenWidth / 2, rangeLower
+    local x2, y2 = x1, rangeUpper - 10
+
+    -- TODO 判断是否在文章页面(黑喇叭)
     local inArticalX, inArticalY =
         findMultiColorInRegionFuzzy(
-        0x000000,
-        '191|-4|0xe32416,-14|15|0x000000,194|23|0xe32416,0|31|0x000000',
+        0xfafbfc,
+        '14|0|0x000000,-8|15|0x000000,5|15|0xfafbfc,14|15|0x000000,27|15|0x000000,13|31|0x000000',
         Misc.high,
         0,
-        0,
+        App.statusHeight,
         Misc.screenWidth,
-        y1
+        rangeLower
     )
     if inArticalX == -1 then
         -- 只允许重试阅读一次
@@ -153,10 +132,10 @@ LearnAction.Artical.read = function(self, targetX, targetY)
 
     while i >= 0 do
         if direction > 0 then
-            Utils.moveTo(x1, y1, x2, y2)
+            Utils.moveTo(x2, y2, x1, y1)
             i = i + 1
         else
-            Utils.moveTo(x2, y2, x1, y1)
+            Utils.moveTo(x1, y1, x2, y2)
             i = i - 1
         end
 
@@ -189,6 +168,11 @@ LearnAction.Artical.read = function(self, targetX, targetY)
             i = i - 1
         end
 
+        local endTime = os.time()
+        local speedTime = endTime - startTime
+        if (speedTime > self.eachArticalSpeedTime) then
+            break
+        end
         mSleep(500)
     end
 
@@ -217,28 +201,65 @@ LearnAction.Artical.start = function(self)
 
     -- 12分，6篇文章提留10秒，共60秒，最后提留5.5
 
+    local rangeLower = (App.navHeight * 2) + App.statusHeight
+    local rangeUpper = Misc.screenHeight - App.navHeight
     local i = 0
     while true do
         if i > self.totalArtical then
+            error('[success](阅读文章完毕！)')
         end
 
         ::loop::
-        mSleep(500)
+        mSleep(1500)
 
-        nLog('[info](当前基点:)' .. self.baseX .. ' ' .. self.baseY)
-        local x2, y2 =
+        if self.reset then
+            self.reset = false
+
+            local baseUpperX, baseUpperY =
+                findMultiColorInRegionFuzzy(
+                0xf2f3f5,
+                '124|0|0xf2f3f5,431|0|0xf2f3f5,568|0|0xf2f3f5,631|0|0xf2f3f5,0|1|0xffffff,142|1|0xffffff,429|1|0xffffff,647|1|0xffffff',
+                Misc.high,
+                0,
+                rangeLower,
+                Misc.screenWidth,
+                rangeUpper
+            )
+
+            -- nLog('[](文章区域)' .. rangeLower .. ' ' .. rangeUpper)
+            -- Utils.checkFailed(baseX, '[error](错误，未找到初始点，程序退出！)')
+            if baseUpperY == -1 then
+                nLog('[info](未找到文章上线，滑动)')
+
+                local distanceY = Misc.screenHeight - App.navHeight * 1.3
+
+                moveTo(Misc.screenWidth / 2, distanceY, Misc.screenWidth / 2, 0)
+
+                goto loop
+            end
+
+            nLog('[](基线上线y)' .. baseUpperY)
+            self.baseX = baseUpperX
+            self.baseY = baseUpperY + 5
+
+            mSleep(500)
+        end
+
+        -- local rangeLower = (App.navHeight * 2) + App.statusHeight
+        -- local rangeUpper = Misc.screenHeight - App.navHeight
+        local baseLowerX, baseLowerY =
             findMultiColorInRegionFuzzy(
             0xf2f3f5,
-            '36|0|0xf2f3f5,81|0|0xf2f3f5,135|0|0xf2f3f5,172|0|0xf2f3f5',
+            '124|0|0xf2f3f5,431|0|0xf2f3f5,568|0|0xf2f3f5,631|0|0xf2f3f5,0|1|0xffffff,142|1|0xffffff,429|1|0xffffff,647|1|0xffffff',
             Misc.high,
             0,
+            -- 以上一次基点线为基础向下找
             self.baseY,
             Misc.screenWidth,
-            Misc.screenHeight
+            rangeUpper
         )
 
-        nLog('[info](x1, y1, x2, y2:)' .. self.baseX .. ' ' .. self.baseY .. ' ' .. x2 .. ' ' .. y2)
-        if x2 == -1 then
+        if baseLowerY == -1 then
             nLog('[info](未找到文章下线，下拉数据)')
 
             -- 第一种：下拉刷新数据
@@ -250,7 +271,8 @@ LearnAction.Artical.start = function(self)
             -- )
 
             -- 第二种：向下滑动
-            local distanceY = self.navY - (Misc.screenHeight - self.navY)
+            local distanceY = Misc.screenHeight - App.navHeight * 1.3
+
             moveTo(Misc.screenWidth / 2, distanceY, Misc.screenWidth / 2, 0)
 
             -- TODO 等待刷新完毕，并检查网络
@@ -268,47 +290,80 @@ LearnAction.Artical.start = function(self)
             -- 重置状态
             self.baseX = 0
             self.baseY = 0
+            self.reset = true
+
+            goto loop
+        end
+
+        -- 缓存上线
+        local baseUpperY = self.baseY
+
+        nLog('[](基线下线y)' .. baseLowerY)
+        self.baseX = baseLowerX
+        self.baseY = baseLowerY + 5
+
+        -- local mediaX, mediaY =
+        --     findMultiColorInRegionFuzzy(
+        --     0xe32416,
+        --     '7|0|0xe32416,0|31|0xe32416,7|31|0xe32416,3|11|0xe32416,-3|0|0xffffff,9|34|0xffffff',
+        --     90,
+        --     0,
+        --     App.navHeight * 2,
+        --     Misc.screenWidth,
+        --     Misc.screenHeight - App.navHeight
+        -- )
+
+        -- if mediaX ~= -1 then
+        --     -- 滑动
+        --     local distanceY = App.navHeight - (Misc.screenHeight - App.navHeight)
+
+        --     moveTo(Misc.screenWidth / 2, distanceY, Misc.screenWidth / 2, 0)
+
+        --     -- 重置状态
+        --     self.baseX = 0
+        --     self.baseY = 0
+        --     mSleep(1500)
+        --     goto loop
+        -- end
+
+        -- 是否为文章区间(喇叭为依据)
+        local articalRangeX, articalRangeY =
+            findMultiColorInRegionFuzzy(
+            0xffffff,
+            '-1|3|0xe32416,-17|14|0xe42c1e,10|14|0xe42e20,-1|24|0xe32416,-10|23|0xffffff',
+            Misc.high,
+            0,
+            baseUpperY,
+            Misc.screenWidth,
+            baseLowerY
+        )
+
+        if articalRangeX == -1 then
+            -- 滑动
+            local distanceY = Misc.screenHeight - App.navHeight * 1.3
+
+            moveTo(Misc.screenWidth / 2, distanceY, Misc.screenWidth / 2, 0)
+
+            -- 重置状态
+            self.baseX = 0
+            self.baseY = 0
+            self.reset = true
 
             mSleep(1500)
             goto loop
         end
 
-        -- local tmpBaseX = self.basex
-        local tmpBaseY = self.baseY - 1
-
-        self.baseX = x2
-        self.baseY = y2 + 1
-
-        local x3, y3 =
-            findMultiColorInRegionFuzzy(
-            0x0a062f,
-            '13|0|0xffffff,28|0|0x0f0b2e,2|3|0x0b062f,14|3|0xffffff,31|3|0x100b2f,1|9|0x0c0630,11|9|0xffffff,24|9|0x0e0a30',
-            Misc.middle,
-            0,
-            tmpBaseY,
-            Misc.screenWidth,
-            self.baseY - 1
-        )
-        if x3 ~= -1 then
-            nLog('[]找到x3, y3, baseX, baseY:' .. x3 .. ' ' .. y3 .. self.baseX .. ' ' .. self.baseY)
-
-            goto loop
-        end
-
         -- 区域内，垂直(y)方向上的中点
-        local targetX, targetY = Misc.screenWidth / 2, (self.baseY - tmpBaseY) / 2 + tmpBaseY
+        local targetX, targetY = Misc.screenWidth / 2, (baseLowerY - baseUpperY) / 2 + baseUpperY
 
-        nLog('[](找到文章:)')
-        -- nLog(x .. ' ' .. y)
-        -- nLog(x2 .. ' ' .. y2)
-        -- nLog(x3 .. ' ' .. y3)
-        nLog(targetX .. ' ' .. targetY)
+        nLog('[](找到文章:)' .. targetX .. ' ' .. targetY)
 
         -- 阅读文章
         self:read(targetX, targetY)
 
         -- 返回
         -- Utils.click(47, 99)
+        mSleep(1000)
         App:back(0)
         i = i + 1
     end
